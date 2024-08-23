@@ -25,7 +25,7 @@
         <h1>Cities and Countries Scored by Starred Restaurants</h1>
         <div>
             <label for="score-filter">Minimum City Score:</label>
-            <input type="number" id="score-filter" min="0" step="0.1" value="0">
+            <input type="number" id="score-filter" min="0" step="0.1" value="5">
             <button onclick="applyFilter()">Apply Filter</button>
         </div>
         <div id="map"></div>
@@ -83,7 +83,6 @@
                     default: restaurant.score = 0;
                 }
                 restaurant.country = getCountry(restaurant.Location);
-                // Special case for Hong Kong
                 if (restaurant.Location === "Hong Kong, Hong Kong SAR China") {
                     restaurant.Location = "Hong Kong";
                 }
@@ -139,12 +138,15 @@
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
 
+            // Add country layer first
             geojson = L.geoJson(geojsonData, {
                 style: style,
                 onEachFeature: onEachFeature
             }).addTo(map);
 
-            addCityMarkers(allCities);
+            // Then add city markers
+            applyFilter(); // This will add filtered city markers
+
             addLegend();
         }
 
