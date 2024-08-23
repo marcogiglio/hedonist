@@ -18,14 +18,15 @@
         th { background-color: #f2f2f2; }
         .legend { padding: 6px 8px; font: 14px Arial, Helvetica, sans-serif; background: white; background: rgba(255,255,255,0.8); box-shadow: 0 0 15px rgba(0,0,0,0.2); border-radius: 5px; line-height: 24px; color: #555; }
         .legend i { width: 18px; height: 18px; float: left; margin-right: 8px; opacity: 0.7; }
+        #score-filter { width: 200px; }
     </style>
 </head>
 <body>
     <div id="map-container">
         <h1>Cities and Countries Scored by Starred Restaurants</h1>
         <div>
-            <label for="score-filter">Minimum City Score:</label>
-            <input type="number" id="score-filter" min="0" step="0.1" value="5">
+            <label for="score-filter">Minimum City Score: <span id="score-value">10</span></label><br>
+            <input type="range" id="score-filter" min="0" max="100" value="10" step="0.1">
             <button onclick="applyFilter()">Apply Filter</button>
         </div>
         <div id="map"></div>
@@ -115,6 +116,10 @@
 
             updateTopCitiesTable();
             updateTopCountriesTable();
+
+            // Set max value for slider
+            const maxScore = Math.ceil(allCities[0].score);
+            document.getElementById('score-filter').max = maxScore;
         }
 
         function getCountry(location) {
@@ -138,15 +143,12 @@
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
 
-            // Add country layer first
             geojson = L.geoJson(geojsonData, {
                 style: style,
                 onEachFeature: onEachFeature
             }).addTo(map);
 
-            // Then add city markers
-            applyFilter(); // This will add filtered city markers
-
+            applyFilter();
             addLegend();
         }
 
@@ -176,7 +178,7 @@
             };
         }
 
-        function onEachFeature(feature, layer) {
+       function onEachFeature(feature, layer) {
             layer.on({
                 mouseover: highlightFeature,
                 mouseout: resetHighlight,
@@ -193,14 +195,29 @@
                 fillOpacity: 0.7
             });
             layer.bringToFront();
+            showCountryPopup(e);
         }
 
         function resetHighlight(e) {
             geojson.resetStyle(e.target);
+            map.closePopup();
         }
 
         function zoomToFeature(e) {
             map.fitBounds(e.target.getBounds());
+        }
+
+        function showCountryPopup(e) {
+            var layer = e.target;
+            var countryName = layer.feature.properties.ADMIN;
+            var countryData = allCountries.find(c => c.name === countryName);
+            var popupContent = `<b>${countryName}</b><br>Total Score: ${countryData ? countryData.score.toFixed(2) : 'No data'}`;
+            
+            layer.bindPopup(popupContent, {
+                offset: L.point(0, -5),
+                closeButton: false,
+                closeOnClick: false
+            }).openPopup();
         }
 
         function addCityMarkers(cities) {
@@ -270,6 +287,11 @@
             const minScore = parseFloat(document.getElementById('score-filter').value);
             const filteredCities = allCities.filter(city => city.score >= minScore);
             addCityMarkers(filteredCities);
+        }
+
+       // Update score value display when slider is moved
+        document.getElementById('score-filter').oninput = function() {
+            document.getElementById('score-value').textContent = this.value;
         }
     </script>
 </body>
