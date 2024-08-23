@@ -3,40 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Starred Restaurants Map</title>
+    <title>Cities Scored by Starred Restaurants</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.0.0/d3.min.js"></script>
     <style>
-        #map { height: 400px; width: 100%; }
+        #map { height: 600px; width: 100%; }
         body { padding: 20px; font-family: Arial, sans-serif; }
     </style>
 </head>
 <body>
-    <h1>Cities with Most Starred Restaurants</h1>
+    <h1>Cities Scored by Starred Restaurants</h1>
     <div id="map"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Sample data (replace with your actual data)
-            const cities = [
-                { name: "Paris", lat: 48.8566, lon: 2.3522, starredRestaurants: 122 },
-                { name: "Tokyo", lat: 35.6762, lon: 139.6503, starredRestaurants: 226 },
-                { name: "New York", lat: 40.7128, lon: -74.0060, starredRestaurants: 73 }
-            ];
+        // Replace this URL with the raw GitHub URL of your CSV file
+        const csvUrl = 'https://raw.githubusercontent.com/marcogiglio/hedonist/main/michelin_my_maps.csv';
 
-            // Initialize map
+        Papa.parse(csvUrl, {
+            download: true,
+            header: true,
+            complete: function(results) {
+                processData(results.data);
+            }
+        });
+
+        function processData(data) {
+            // Calculate score for each restaurant
+            data.forEach(restaurant => {
+                switch(restaurant.Award) {
+                    case "3 Stars":
+                        restaurant.score = Math.sqrt(3);
+                        break;
+                    case "2 Stars":
+                        restaurant.score = Math.sqrt(2);
+                        break;
+                    case "1 Star":
+                        restaurant.score = 1;
+                        break;
+                    default:
+                        restaurant.score = 0;
+                }
+            });
+
+            // Group restaurants by city and sum scores
+            const cityScores = d3.rollup(data, 
+                v => d3.sum(v, d => d.score),
+                d => d.Location
+            );
+
+            // Convert to array and add coordinates
+            const scoredCities = Array.from(cityScores, ([name, score]) => {
+                const restaurant = data.find(r => r.Location === name);
+                return {
+                    name,
+                    score: parseFloat(score.toFixed(2)),
+                    lat: parseFloat(restaurant.Latitude),
+                    lon: parseFloat(restaurant.Longitude)
+                };
+            });
+
+            createMap(scoredCities);
+        }
+
+        function createMap(cities) {
             const map = L.map('map').setView([20, 0], 2);
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
 
-            // Add markers for each city
             cities.forEach(city => {
                 const marker = L.marker([city.lat, city.lon]).addTo(map);
-                marker.bindPopup(`<b>${city.name}</b><br>${city.starredRestaurants} starred restaurants`);
+                marker.bindPopup(`<b>${city.name}</b><br>Score: ${city.score}`);
             });
-        });
+        }
     </script>
 </body>
 </html>
