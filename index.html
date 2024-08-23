@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cities Scored by Starred Restaurants</title>
+    <title>Countries Scored by Starred Restaurants</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.0.0/d3.min.js"></script>
@@ -19,7 +19,7 @@
 </head>
 <body>
     <div id="map-container">
-        <h1>Cities Scored by Starred Restaurants</h1>
+        <h1>Countries Scored by Starred Restaurants</h1>
         <div>
             <label for="score-filter">Minimum Score:</label>
             <input type="number" id="score-filter" min="0" step="0.1" value="0">
@@ -28,12 +28,12 @@
         <div id="map"></div>
     </div>
     <div id="sidebar">
-        <h2>Top 10 Cities</h2>
-        <table id="top-cities">
+        <h2>Top 10 Countries</h2>
+        <table id="top-countries">
             <thead>
                 <tr>
                     <th>Rank</th>
-                    <th>City</th>
+                    <th>Country</th>
                     <th>Score</th>
                 </tr>
             </thead>
@@ -44,9 +44,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
     <script>
         // Replace this URL with the raw GitHub URL of your CSV file
-        const csvUrl = 'https://raw.githubusercontent.com/marcogiglio/hedonist/main/michelin_my_maps.csv';
+        const csvUrl = 'https://raw.githubusercontent.com/yourusername/your-repo/main/your-file.csv';
         let map, markers = [];
-        let allCities = [];
+        let allCountries = [];
 
         Papa.parse(csvUrl, {
             download: true,
@@ -64,15 +64,16 @@
                     case "1 Star": restaurant.score = 1; break;
                     default: restaurant.score = 0;
                 }
+                restaurant.country = getCountry(restaurant.Location);
             });
 
-            const cityScores = d3.rollup(data, 
+            const countryScores = d3.rollup(data, 
                 v => d3.sum(v, d => d.score),
-                d => d.Location
+                d => d.country
             );
 
-            allCities = Array.from(cityScores, ([name, score]) => {
-                const restaurant = data.find(r => r.Location === name);
+            allCountries = Array.from(countryScores, ([name, score]) => {
+                const restaurant = data.find(r => r.country === name);
                 return {
                     name,
                     score: parseFloat(score.toFixed(2)),
@@ -81,46 +82,51 @@
                 };
             }).sort((a, b) => b.score - a.score);
 
-            createMap(allCities);
-            updateTopCitiesTable();
+            createMap(allCountries);
+            updateTopCountriesTable();
         }
 
-        function createMap(cities) {
+        function getCountry(location) {
+            if (location === "Singapore") return "Singapore";
+            return location.split(", ").pop().trim();
+        }
+
+        function createMap(countries) {
             map = L.map('map').setView([20, 0], 2);
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
 
-            addMarkers(cities);
+            addMarkers(countries);
         }
 
-        function addMarkers(cities) {
+        function addMarkers(countries) {
             markers.forEach(marker => map.removeLayer(marker));
             markers = [];
 
-            cities.forEach(city => {
-                const marker = L.marker([city.lat, city.lon]).addTo(map);
-                marker.bindPopup(`<b>${city.name}</b><br>Score: ${city.score}`);
+            countries.forEach(country => {
+                const marker = L.marker([country.lat, country.lon]).addTo(map);
+                marker.bindPopup(`<b>${country.name}</b><br>Score: ${country.score}`);
                 markers.push(marker);
             });
         }
 
-        function updateTopCitiesTable() {
-            const tableBody = document.querySelector("#top-cities tbody");
+        function updateTopCountriesTable() {
+            const tableBody = document.querySelector("#top-countries tbody");
             tableBody.innerHTML = "";
-            allCities.slice(0, 10).forEach((city, index) => {
+            allCountries.slice(0, 10).forEach((country, index) => {
                 const row = tableBody.insertRow();
                 row.insertCell(0).textContent = index + 1;
-                row.insertCell(1).textContent = city.name;
-                row.insertCell(2).textContent = city.score;
+                row.insertCell(1).textContent = country.name;
+                row.insertCell(2).textContent = country.score;
             });
         }
 
         function applyFilter() {
             const minScore = parseFloat(document.getElementById('score-filter').value);
-            const filteredCities = allCities.filter(city => city.score >= minScore);
-            addMarkers(filteredCities);
+            const filteredCountries = allCountries.filter(country => country.score >= minScore);
+            addMarkers(filteredCountries);
         }
     </script>
 </body>
