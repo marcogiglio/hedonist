@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Countries Scored by Starred Restaurants</title>
+    <title>Cities and Countries Scored by Starred Restaurants</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.0.0/d3.min.js"></script>
@@ -11,7 +11,8 @@
         body { padding: 20px; font-family: Arial, sans-serif; display: flex; }
         #map-container { flex: 2; }
         #map { height: 600px; width: 100%; }
-        #sidebar { flex: 1; padding-left: 20px; }
+        #sidebar { flex: 1; padding-left: 20px; display: flex; flex-direction: column; }
+        .table-container { flex: 1; margin-bottom: 20px; }
         table { width: 100%; border-collapse: collapse; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }
@@ -19,7 +20,7 @@
 </head>
 <body>
     <div id="map-container">
-        <h1>Countries Scored by Starred Restaurants</h1>
+        <h1>Cities and Countries Scored by Starred Restaurants</h1>
         <div>
             <label for="score-filter">Minimum Score:</label>
             <input type="number" id="score-filter" min="0" step="0.1" value="0">
@@ -28,25 +29,40 @@
         <div id="map"></div>
     </div>
     <div id="sidebar">
-        <h2>Top 10 Countries</h2>
-        <table id="top-countries">
-            <thead>
-                <tr>
-                    <th>Rank</th>
-                    <th>Country</th>
-                    <th>Score</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+        <div class="table-container">
+            <h2>Top 10 Cities</h2>
+            <table id="top-cities">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>City</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div class="table-container">
+            <h2>Top 10 Countries</h2>
+            <table id="top-countries">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Country</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
     <script>
-        // Replace this URL with the raw GitHub URL of your CSV file
-        const csvUrl = 'https://raw.githubusercontent.com/yourusername/your-repo/main/your-file.csv';
+        // Updated CSV file name
+        const csvUrl = 'michelin_my_maps.csv';
         let map, markers = [];
-        let allCountries = [];
+        let allCities = [], allCountries = [];
 
         Papa.parse(csvUrl, {
             download: true,
@@ -67,13 +83,13 @@
                 restaurant.country = getCountry(restaurant.Location);
             });
 
-            const countryScores = d3.rollup(data, 
+            const cityScores = d3.rollup(data, 
                 v => d3.sum(v, d => d.score),
-                d => d.country
+                d => d.Location
             );
 
-            allCountries = Array.from(countryScores, ([name, score]) => {
-                const restaurant = data.find(r => r.country === name);
+            allCities = Array.from(cityScores, ([name, score]) => {
+                const restaurant = data.find(r => r.Location === name);
                 return {
                     name,
                     score: parseFloat(score.toFixed(2)),
@@ -82,7 +98,18 @@
                 };
             }).sort((a, b) => b.score - a.score);
 
-            createMap(allCountries);
+            const countryScores = d3.rollup(data, 
+                v => d3.sum(v, d => d.score),
+                d => d.country
+            );
+
+            allCountries = Array.from(countryScores, ([name, score]) => ({
+                name,
+                score: parseFloat(score.toFixed(2))
+            })).sort((a, b) => b.score - a.score);
+
+            createMap(allCities);
+            updateTopCitiesTable();
             updateTopCountriesTable();
         }
 
@@ -91,24 +118,43 @@
             return location.split(", ").pop().trim();
         }
 
-        function createMap(countries) {
+        function createMap(cities) {
             map = L.map('map').setView([20, 0], 2);
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
 
-            addMarkers(countries);
+            addMarkers(cities);
         }
 
-        function addMarkers(countries) {
+        function addMarkers(cities) {
             markers.forEach(marker => map.removeLayer(marker));
             markers = [];
 
-            countries.forEach(country => {
-                const marker = L.marker([country.lat, country.lon]).addTo(map);
-                marker.bindPopup(`<b>${country.name}</b><br>Score: ${country.score}`);
+            cities.forEach(city => {
+                const color = city.score > 150 ? 'red' : city.score > 100 ? 'orange' : city.score > 50 ? 'yellow' : 'green';
+                const marker = L.circleMarker([city.lat, city.lon], {
+                    radius: 8,
+                    fillColor: color,
+                    color: '#000',
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map);
+                marker.bindPopup(`<b>${city.name}</b><br>Score: ${city.score}`);
                 markers.push(marker);
+            });
+        }
+
+        function updateTopCitiesTable() {
+            const tableBody = document.querySelector("#top-cities tbody");
+            tableBody.innerHTML = "";
+            allCities.slice(0, 10).forEach((city, index) => {
+                const row = tableBody.insertRow();
+                row.insertCell(0).textContent = index + 1;
+                row.insertCell(1).textContent = city.name;
+                row.insertCell(2).textContent = city.score;
             });
         }
 
@@ -125,8 +171,8 @@
 
         function applyFilter() {
             const minScore = parseFloat(document.getElementById('score-filter').value);
-            const filteredCountries = allCountries.filter(country => country.score >= minScore);
-            addMarkers(filteredCountries);
+            const filteredCities = allCities.filter(city => city.score >= minScore);
+            addMarkers(filteredCities);
         }
     </script>
 </body>
